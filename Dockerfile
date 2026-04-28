@@ -29,7 +29,7 @@ ENV LLAMA_DISABLE_WEBUI=1
 
 # GGUF default for the requested Flash model family.
 # Override with MODEL_PATH or MODEL_HF_REPO/MODEL_HF_FILE as needed.
-ENV MODEL_HF_REPO=DevQuasar/huihui-ai.Huihui-GLM-4.7-Flash-abliterated-GGUF
+ENV MODEL_HF_REPO=unsloth/GLM-4.6V-Flash-GGUF
 
 # The base image sets an entrypoint dispatcher that only recognises
 # llama.cpp sub-commands (--server, --run, etc.).  Reset it so the
