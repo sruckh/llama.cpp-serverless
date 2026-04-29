@@ -65,22 +65,15 @@ def _build_server_command() -> List[str]:
             "No model configured. Set MODEL_PATH, MODEL_URL, or MODEL_HF_REPO (and optionally MODEL_HF_FILE)."
         )
 
-    # This worker is text-only; disable auto mmproj download to avoid crashes
-    # when the base model is multimodal but no valid projector is available.
-    cmd.append("--no-mmproj")
-
-    # Multimodal projector (mmproj) support for vision models
-    # Note: When using --hf-repo, mmproj is auto-downloaded if available in the repo.
-    # Use these options to override or when mmproj isn't auto-detected.
     mmproj_path = os.getenv("MMPROJ_PATH", "").strip()
     mmproj_url = os.getenv("MMPROJ_URL", "").strip()
 
     if mmproj_path:
-        # Use local mmproj file
         cmd.extend(["--mmproj", mmproj_path])
     elif mmproj_url:
-        # Download mmproj from direct URL (e.g., HF resolve URL)
         cmd.extend(["--mmproj-url", mmproj_url])
+    else:
+        cmd.append("--no-mmproj")
 
     alias = os.getenv("MODEL_ALIAS", "gpt-4o").strip()
     if alias:

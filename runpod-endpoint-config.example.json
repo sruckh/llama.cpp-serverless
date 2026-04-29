@@ -1,5 +1,5 @@
 {
-  "name": "llama-cpp-qwen3.6-27b",
+  "name": "llama-cpp-qwen3.6-27b-abliterated",
   "templateId": "<YOUR_TEMPLATE_ID>",
   "gpuTypeIds": ["NVIDIA RTX A5000"],
   "gpuCount": 1,
