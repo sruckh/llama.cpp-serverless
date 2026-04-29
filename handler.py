@@ -75,6 +75,9 @@ def _build_server_command() -> List[str]:
     else:
         cmd.append("--no-mmproj")
 
+    if not _env_flag("LLAMA_ENABLE_THINKING", False):
+        cmd.extend(["--chat-template-kwargs", '{"enable_thinking":false}'])
+
     alias = os.getenv("MODEL_ALIAS", "gpt-4o").strip()
     if alias:
         cmd.extend(["--alias", alias])
@@ -213,6 +216,10 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         content_type = response.headers.get("content-type", "")
         if "application/json" in content_type.lower():
             body = response.json()
+            if not _env_flag("LLAMA_ENABLE_THINKING", False) and isinstance(body, dict):
+                for choice in body.get("choices", []):
+                    msg = choice.get("message", {})
+                    msg.pop("reasoning_content", None)
         else:
             body = {"raw": response.text}
 
