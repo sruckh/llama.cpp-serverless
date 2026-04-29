@@ -27,10 +27,10 @@ ENV LLAMA_N_GPU_LAYERS=999
 ENV LLAMA_THREADS_HTTP=4
 ENV LLAMA_DISABLE_WEBUI=1
 
-# GGUF default for the requested Flash model family.
+# GGUF model: Qwen3.5-9B abliterated vision (Q4_K_M).
 # Override with MODEL_PATH or MODEL_HF_REPO/MODEL_HF_FILE as needed.
-ENV MODEL_HF_REPO=unsloth/GLM-4.6V-Flash-GGUF
-ENV MODEL_HF_FILE=GLM-4.6V-Flash-UD-Q8_K_XL.gguf
+ENV MODEL_HF_REPO=lukey03/Qwen3.5-9B-abliterated-GGUF
+ENV MODEL_HF_FILE=Qwen3.5-9B-abliterated-vision-Q4_K_M.gguf
 
 # The base image sets an entrypoint dispatcher that only recognises
 # llama.cpp sub-commands (--server, --run, etc.).  Reset it so the

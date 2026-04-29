@@ -78,7 +78,7 @@ def _build_server_command() -> List[str]:
         # Download mmproj from direct URL (e.g., HF resolve URL)
         cmd.extend(["--mmproj-url", mmproj_url])
 
-    alias = os.getenv("MODEL_ALIAS", "huihui-glm-4.6v-flash-abliterated").strip()
+    alias = os.getenv("MODEL_ALIAS", "gpt-4o").strip()
     if alias:
         cmd.extend(["--alias", alias])
 
@@ -154,7 +154,7 @@ def _build_default_chat_payload(job_input: Dict[str, Any]) -> Dict[str, Any]:
         messages = [{"role": "user", "content": prompt}]
 
     payload: Dict[str, Any] = {
-        "model": job_input.get("model", os.getenv("MODEL_ALIAS", "huihui-glm-4.6v-flash-abliterated")),
+        "model": job_input.get("model", os.getenv("MODEL_ALIAS", "gpt-4o")),
         "messages": messages,
         "stream": False,
     }
