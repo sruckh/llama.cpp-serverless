@@ -27,10 +27,9 @@ ENV LLAMA_N_GPU_LAYERS=999
 ENV LLAMA_THREADS_HTTP=4
 ENV LLAMA_DISABLE_WEBUI=1
 
-# GGUF model: Qwen3.5-9B abliterated vision (Q4_K_M).
-# Override with MODEL_PATH or MODEL_HF_REPO/MODEL_HF_FILE as needed.
-ENV MODEL_HF_REPO=lukey03/Qwen3.5-9B-abliterated-GGUF
-ENV MODEL_HF_FILE=Qwen3.5-9B-abliterated-vision-Q4_K_M.gguf
+# Direct URL for the model GGUF — bypasses HF repo resolution.
+# Override MODEL_URL on RunPod to swap models without rebuilding.
+ENV MODEL_URL=https://huggingface.co/lukey03/Qwen3.5-9B-abliterated-GGUF/resolve/main/Qwen3.5-9B-abliterated-vision-Q4_K_M.gguf
 
 # The base image sets an entrypoint dispatcher that only recognises
 # llama.cpp sub-commands (--server, --run, etc.).  Reset it so the

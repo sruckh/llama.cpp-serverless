@@ -50,15 +50,19 @@ def _build_server_command() -> List[str]:
     hf_repo = os.getenv("MODEL_HF_REPO", "").strip()
     hf_file = os.getenv("MODEL_HF_FILE", "").strip()
 
+    model_url = os.getenv("MODEL_URL", "").strip()
+
     if model_path:
         cmd.extend(["--model", model_path])
+    elif model_url:
+        cmd.extend(["--model-url", model_url])
     elif hf_repo:
         cmd.extend(["--hf-repo", hf_repo])
         if hf_file:
             cmd.extend(["--hf-file", hf_file])
     else:
         raise RuntimeError(
-            "No model configured. Set MODEL_PATH or MODEL_HF_REPO (and optionally MODEL_HF_FILE)."
+            "No model configured. Set MODEL_PATH, MODEL_URL, or MODEL_HF_REPO (and optionally MODEL_HF_FILE)."
         )
 
     # This worker is text-only; disable auto mmproj download to avoid crashes
