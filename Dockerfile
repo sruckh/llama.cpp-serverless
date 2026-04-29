@@ -29,7 +29,7 @@ ENV LLAMA_DISABLE_WEBUI=1
 
 # Direct URL for the model GGUF — bypasses HF repo resolution.
 # Override MODEL_URL on RunPod to swap models without rebuilding.
-ENV MODEL_URL=https://huggingface.co/lukey03/Qwen3.5-9B-abliterated-GGUF/resolve/main/Qwen3.5-9B-abliterated-vision-Q4_K_M.gguf
+ENV MODEL_URL=https://huggingface.co/lukey03/Qwen3.5-9B-abliterated-GGUF/resolve/main/Qwen3.5-9B-abliterated-F16.gguf
 
 # The base image sets an entrypoint dispatcher that only recognises
 # llama.cpp sub-commands (--server, --run, etc.).  Reset it so the
