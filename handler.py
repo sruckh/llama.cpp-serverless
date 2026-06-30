@@ -62,6 +62,12 @@ def _build_server_command() -> List[str]:
     if _env_flag("LLAMA_DISABLE_WEBUI", True):
         cmd.append("--no-webui")
 
+    if _env_flag("LLAMA_JINJA", True):
+        cmd.append("--jinja")
+
+    if _env_flag("LLAMA_FLASH_ATTN", True):
+        cmd.append("-fa")
+
     model_path = os.getenv("MODEL_PATH", "").strip()
     hf_repo = os.getenv("MODEL_HF_REPO", "").strip()
     hf_file = os.getenv("MODEL_HF_FILE", "").strip()
