@@ -198,6 +198,9 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     if payload is None:
         payload = _build_default_chat_payload(job_input)
 
+    # Always normalize model name to the alias llama-server was started with
+    payload["model"] = os.getenv("MODEL_ALIAS", "gpt-4o")
+
     url = f"{LLAMA_SERVER_URL}{endpoint}"
 
     headers = {"Content-Type": "application/json"}
