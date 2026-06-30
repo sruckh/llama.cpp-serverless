@@ -66,7 +66,7 @@ def _build_server_command() -> List[str]:
         cmd.append("--jinja")
 
     if _env_flag("LLAMA_FLASH_ATTN", True):
-        cmd.append("-fa")
+        cmd.extend(["-fa", "on"])
 
     model_path = os.getenv("MODEL_PATH", "").strip()
     hf_repo = os.getenv("MODEL_HF_REPO", "").strip()
