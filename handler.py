@@ -77,7 +77,13 @@ def _build_server_command() -> List[str]:
     if model_path:
         cmd.extend(["--model", model_path])
     elif model_url:
-        cmd.extend(["--model-url", model_url])
+        # Newer llama-server builds only boot in classic single-model mode
+        # when -m/--model points at a local path; --model-url alone is just
+        # a download source and is otherwise ignored, falling through to
+        # router mode with zero registered presets. Pair -m with -mu so the
+        # file is downloaded to a local cache path and loaded directly.
+        local_model_path = os.getenv("MODEL_CACHE_PATH", "/tmp/model.gguf").strip()
+        cmd.extend(["--model", local_model_path, "--model-url", model_url])
     elif hf_repo:
         cmd.extend(["--hf-repo", hf_repo])
         if hf_file:
@@ -93,7 +99,8 @@ def _build_server_command() -> List[str]:
     if mmproj_path:
         cmd.extend(["--mmproj", mmproj_path])
     elif mmproj_url:
-        cmd.extend(["--mmproj-url", mmproj_url])
+        local_mmproj_path = os.getenv("MMPROJ_CACHE_PATH", "/tmp/mmproj.gguf").strip()
+        cmd.extend(["--mmproj", local_mmproj_path, "--mmproj-url", mmproj_url])
     else:
         cmd.append("--no-mmproj")
 
