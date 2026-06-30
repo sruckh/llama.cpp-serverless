@@ -4,3 +4,7 @@ __pycache__/
 .env
 .serena/
 litellm/
+.antigravitycli
+.antigravitycli/
+.claude
+.claude/
