@@ -154,7 +154,7 @@ def _build_default_chat_payload(job_input: Dict[str, Any]) -> Dict[str, Any]:
         messages = [{"role": "user", "content": prompt}]
 
     payload: Dict[str, Any] = {
-        "model": job_input.get("model", os.getenv("MODEL_ALIAS", "gpt-4o")),
+        "model": job_input.get("model", os.getenv("MODEL_ALIAS", "gpt-4o").strip()),
         "messages": messages,
         "stream": False,
     }
@@ -199,7 +199,7 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         payload = _build_default_chat_payload(job_input)
 
     # Always normalize model name to the alias llama-server was started with
-    payload["model"] = os.getenv("MODEL_ALIAS", "gpt-4o")
+    payload["model"] = os.getenv("MODEL_ALIAS", "gpt-4o").strip()
 
     url = f"{LLAMA_SERVER_URL}{endpoint}"
 
