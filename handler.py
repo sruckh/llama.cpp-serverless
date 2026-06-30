@@ -16,7 +16,23 @@ LLAMA_SERVER_URL = f"http://{LLAMA_SERVER_HOST}:{LLAMA_SERVER_PORT}"
 SERVER_START_TIMEOUT_SECONDS = int(os.getenv("SERVER_START_TIMEOUT_SECONDS", "900"))
 SERVER_REQUEST_TIMEOUT_SECONDS = int(os.getenv("SERVER_REQUEST_TIMEOUT_SECONDS", "600"))
 
+LLAMA_SERVER_LOG_PATH = os.getenv("LLAMA_SERVER_LOG_PATH", "/tmp/llama-server.log")
+
 _server_process = None
+_server_log_file = None
+
+
+def _read_log_tail(max_bytes: int = 4000) -> str:
+    try:
+        with open(LLAMA_SERVER_LOG_PATH, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            size = f.tell()
+            f.seek(max(0, size - max_bytes))
+            return f.read().decode(errors="replace")
+    except FileNotFoundError:
+        return "(no log file yet)"
+    except Exception as exc:
+        return f"(failed to read log: {exc})"
 
 
 def _env_flag(name: str, default: bool) -> bool:
@@ -99,7 +115,7 @@ def _wait_for_server_ready() -> None:
 
     while time.time() < deadline:
         if _server_process is not None and _server_process.poll() is not None:
-            output = _server_process.stdout.read().decode(errors="replace")[-2000:]
+            output = _read_log_tail()
             raise RuntimeError(
                 f"llama-server exited with code {_server_process.returncode}: {output}"
             )
@@ -114,25 +130,27 @@ def _wait_for_server_ready() -> None:
         time.sleep(2)
 
     raise TimeoutError(
-        f"llama-server did not become ready within {SERVER_START_TIMEOUT_SECONDS} seconds"
+        f"llama-server did not become ready within {SERVER_START_TIMEOUT_SECONDS} seconds. "
+        f"Last log output: {_read_log_tail()}"
     )
 
 
 def _ensure_server_running() -> None:
-    global _server_process
+    global _server_process, _server_log_file
 
     if _server_process is not None and _server_process.poll() is None:
         return
 
     command = _build_server_command()
+    _server_log_file = open(LLAMA_SERVER_LOG_PATH, "wb")
     _server_process = subprocess.Popen(
-        command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        command, stdout=_server_log_file, stderr=subprocess.STDOUT
     )
     _wait_for_server_ready()
 
 
 def _stop_server() -> None:
-    global _server_process
+    global _server_process, _server_log_file
 
     if _server_process is None:
         return
@@ -145,6 +163,10 @@ def _stop_server() -> None:
             _server_process.kill()
 
     _server_process = None
+
+    if _server_log_file is not None:
+        _server_log_file.close()
+        _server_log_file = None
 
 
 def _build_default_chat_payload(job_input: Dict[str, Any]) -> Dict[str, Any]:
@@ -206,6 +228,7 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             "server_command": _build_server_command(),
             "model_alias_env_raw": os.getenv("MODEL_ALIAS"),
             "models_endpoint": models_body,
+            "server_log_tail": _read_log_tail(),
         }
 
     endpoint = job_input.get("endpoint", "/v1/chat/completions")
