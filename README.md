@@ -147,7 +147,7 @@ All configuration is via environment variables, set either in the Dockerfile or 
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LLAMA_CTX_SIZE` | Context window size (tokens) | `32768` |
+| `LLAMA_CTX_SIZE` | Context window size (tokens) | `32768` (32K) |
 | `LLAMA_N_GPU_LAYERS` | Number of layers offloaded to GPU | `999` (all) |
 | `LLAMA_PARALLEL` | Number of parallel inference slots | `1` |
 | `LLAMA_THREADS_HTTP` | HTTP server threads | `4` |
@@ -155,6 +155,8 @@ All configuration is via environment variables, set either in the Dockerfile or 
 | `LLAMA_EXTRA_ARGS` | Additional CLI flags for llama-server (space-separated) | — |
 | `LLAMA_API_KEY` | API key for llama-server authentication | — |
 | `LLAMA_DISABLE_WEBUI` | Disable the built-in web UI | `1` (disabled) |
+
+> **Context window (`LLAMA_CTX_SIZE`):** The default is 32768 tokens (32K), which matches the native training context of Qwen3.6-27B. At 32K, the KV cache adds roughly 2–4 GB of VRAM on top of model weights (~19 GB for Q5_K_M), well within the RTX 5090's 32 GB. To override on RunPod without rebuilding the image, set `LLAMA_CTX_SIZE` in the **Environment Variables** section of your RunPod Endpoint or Template settings. Going beyond 32768 requires RoPE scaling and may degrade response quality.
 
 > **Thinking mode:** When `LLAMA_ENABLE_THINKING=false` (the default), the server passes `--chat-template-kwargs '{"enable_thinking":false}'` to suppress thinking token generation, and `reasoning_content` is stripped from API responses. Set to `true` to enable thinking/reasoning output.
 
