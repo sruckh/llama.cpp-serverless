@@ -192,6 +192,22 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     job_input = job.get("input", {})
+
+    if job_input.get("debug"):
+        try:
+            models_response = requests.get(f"{LLAMA_SERVER_URL}/v1/models", timeout=10)
+            models_body = models_response.json()
+        except Exception as exc:
+            models_body = {"error": str(exc)}
+
+        return {
+            "ok": True,
+            "debug": True,
+            "server_command": _build_server_command(),
+            "model_alias_env_raw": os.getenv("MODEL_ALIAS"),
+            "models_endpoint": models_body,
+        }
+
     endpoint = job_input.get("endpoint", "/v1/chat/completions")
     payload = job_input.get("payload")
 
