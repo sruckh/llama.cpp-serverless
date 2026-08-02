@@ -1,5 +1,6 @@
 import atexit
 import os
+import shutil
 import subprocess
 import time
 from typing import Any, Dict, List
@@ -17,6 +18,7 @@ SERVER_START_TIMEOUT_SECONDS = int(os.getenv("SERVER_START_TIMEOUT_SECONDS", "90
 SERVER_REQUEST_TIMEOUT_SECONDS = int(os.getenv("SERVER_REQUEST_TIMEOUT_SECONDS", "600"))
 
 LLAMA_SERVER_LOG_PATH = os.getenv("LLAMA_SERVER_LOG_PATH", "/tmp/llama-server.log")
+STARTUP_HEARTBEAT_SECONDS = int(os.getenv("STARTUP_HEARTBEAT_SECONDS", "30"))
 
 _server_process = None
 _server_log_file = None
@@ -33,6 +35,54 @@ def _read_log_tail(max_bytes: int = 4000) -> str:
         return "(no log file yet)"
     except Exception as exc:
         return f"(failed to read log: {exc})"
+
+def _log(message: str) -> None:
+    print(f"[handler] {message}", flush=True)
+
+
+def _cache_status() -> Dict[str, Any]:
+    """State of the GGUF files llama-server must open before it can serve.
+
+    Mirrors _build_server_command's priority, so this reports the path actually
+    in use for either deployment: a /tmp download cache (bytes climbing = a
+    transfer is in flight, stuck at 0 = it never started) or a network volume
+    (bytes already at full size = the mount is healthy, so a slow start is load
+    time rather than transfer).
+    """
+    targets = {
+        "model": (
+            os.getenv("MODEL_PATH", "").strip()
+            or os.getenv("MODEL_CACHE_PATH", "/tmp/model.gguf").strip()
+        ),
+        "mmproj": (
+            os.getenv("MMPROJ_PATH", "").strip()
+            or os.getenv("MMPROJ_CACHE_PATH", "/tmp/mmproj.gguf").strip()
+        ),
+    }
+
+    status: Dict[str, Any] = {}
+    for label, path in targets.items():
+        if not path:
+            continue
+
+        entry: Dict[str, Any] = {"path": path}
+        try:
+            entry["bytes"] = os.path.getsize(path)
+        except OSError as exc:
+            entry["bytes"] = None
+            entry["error"] = str(exc)
+        entry["free"] = _disk_free(os.path.dirname(path) or "/").get("free")
+        status[label] = entry
+
+    return status
+
+
+def _disk_free(path: str = "/tmp") -> Dict[str, Any]:
+    try:
+        usage = shutil.disk_usage(path)
+        return {"path": path, "total": usage.total, "free": usage.free}
+    except OSError as exc:
+        return {"path": path, "error": str(exc)}
 
 
 def _env_flag(name: str, default: bool) -> bool:
@@ -125,10 +175,14 @@ def _build_server_command() -> List[str]:
 def _wait_for_server_ready() -> None:
     deadline = time.time() + SERVER_START_TIMEOUT_SECONDS
     health_url = f"{LLAMA_SERVER_URL}/health"
+    started = time.time()
+    next_heartbeat = started + STARTUP_HEARTBEAT_SECONDS
 
     while time.time() < deadline:
         if _server_process is not None and _server_process.poll() is not None:
             output = _read_log_tail()
+            _log(f"llama-server exited with code {_server_process.returncode}")
+            _log(f"log tail: {output}")
             raise RuntimeError(
                 f"llama-server exited with code {_server_process.returncode}: {output}"
             )
@@ -136,14 +190,25 @@ def _wait_for_server_ready() -> None:
         try:
             response = requests.get(health_url, timeout=10)
             if response.ok:
+                _log(f"llama-server ready after {time.time() - started:.0f}s")
                 return
         except requests.RequestException:
             pass
 
+        now = time.time()
+        if now >= next_heartbeat:
+            _log(
+                f"waiting for llama-server: {now - started:.0f}s elapsed, "
+                f"models={_cache_status()}"
+            )
+            next_heartbeat = now + STARTUP_HEARTBEAT_SECONDS
+
         time.sleep(2)
 
+    _log(f"llama-server startup timed out after {SERVER_START_TIMEOUT_SECONDS}s")
     raise TimeoutError(
         f"llama-server did not become ready within {SERVER_START_TIMEOUT_SECONDS} seconds. "
+        f"Models: {_cache_status()}. "
         f"Last log output: {_read_log_tail()}"
     )
 
@@ -155,6 +220,8 @@ def _ensure_server_running() -> None:
         return
 
     command = _build_server_command()
+    _log(f"starting llama-server: {' '.join(command)}")
+    _log(f"logging to {LLAMA_SERVER_LOG_PATH}; disk={_disk_free()}")
     _server_log_file = open(LLAMA_SERVER_LOG_PATH, "wb")
     _server_process = subprocess.Popen(
         command, stdout=_server_log_file, stderr=subprocess.STDOUT
@@ -218,17 +285,17 @@ def _build_default_chat_payload(job_input: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def handler(job: Dict[str, Any]) -> Dict[str, Any]:
-    try:
-        _ensure_server_running()
-    except Exception as exc:
-        return {
-            "error": f"Failed to initialize llama-server: {exc}",
-            "refresh_worker": True,
-        }
-
     job_input = job.get("input", {})
 
+    # Answered before _ensure_server_running() on purpose: when startup itself
+    # is what's broken, starting the server first would block for the full
+    # SERVER_START_TIMEOUT_SECONDS and the diagnostics would never come back.
     if job_input.get("debug"):
+        try:
+            server_command = _build_server_command()
+        except Exception as exc:
+            server_command = {"error": str(exc)}
+
         try:
             models_response = requests.get(f"{LLAMA_SERVER_URL}/v1/models", timeout=10)
             models_body = models_response.json()
@@ -238,10 +305,25 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "ok": True,
             "debug": True,
-            "server_command": _build_server_command(),
+            "server_command": server_command,
+            "server_running": _server_process is not None
+            and _server_process.poll() is None,
+            "server_returncode": None
+            if _server_process is None
+            else _server_process.returncode,
             "model_alias_env_raw": os.getenv("MODEL_ALIAS"),
+            "cache": _cache_status(),
+            "disk": _disk_free(),
             "models_endpoint": models_body,
             "server_log_tail": _read_log_tail(),
+        }
+
+    try:
+        _ensure_server_running()
+    except Exception as exc:
+        return {
+            "error": f"Failed to initialize llama-server: {exc}",
+            "refresh_worker": True,
         }
 
     endpoint = job_input.get("endpoint", "/v1/chat/completions")
