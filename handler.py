@@ -110,7 +110,8 @@ def _build_server_command() -> List[str]:
     ]
 
     if _env_flag("LLAMA_DISABLE_WEBUI", True):
-        cmd.append("--no-webui")
+        # --no-webui is the deprecated alias of --no-ui (same option upstream).
+        cmd.append("--no-ui")
 
     if _env_flag("LLAMA_JINJA", True):
         cmd.append("--jinja")
@@ -155,7 +156,10 @@ def _build_server_command() -> List[str]:
         cmd.append("--no-mmproj")
 
     if not _env_flag("LLAMA_ENABLE_THINKING", False):
-        cmd.extend(["--chat-template-kwargs", '{"enable_thinking":false}'])
+        # Supersedes --chat-template-kwargs '{"enable_thinking":false}', which
+        # newer builds warn is deprecated. --reasoning off sets the same
+        # enable_thinking=false template kwarg plus the internal reasoning flag.
+        cmd.extend(["--reasoning", "off"])
 
     alias = os.getenv("MODEL_ALIAS", "gpt-4o").strip()
     if alias:
@@ -283,6 +287,35 @@ def _build_default_chat_payload(job_input: Dict[str, Any]) -> Dict[str, Any]:
 
     return payload
 
+def _apply_default_max_tokens(payload: Dict[str, Any], endpoint: str) -> None:
+    """Cap generation when the request didn't, so a bad load fails visibly.
+
+    llama-server defaults to n_predict = -1: an uncapped request generates until
+    the context is exhausted. That turns a broken model into an apparent hang
+    (32K tokens of garbage) instead of an obviously wrong short answer. Only
+    fills the gap — a client that sets its own limit always wins.
+    """
+    if "completion" not in endpoint:
+        return
+
+    raw = os.getenv("LLAMA_DEFAULT_MAX_TOKENS", "").strip()
+    if not raw:
+        return
+
+    if any(
+        key in payload for key in ("max_tokens", "max_completion_tokens", "n_predict")
+    ):
+        return
+
+    try:
+        limit = int(raw)
+    except ValueError:
+        _log(f"ignoring non-numeric LLAMA_DEFAULT_MAX_TOKENS={raw!r}")
+        return
+
+    if limit > 0:
+        payload["max_tokens"] = limit
+
 
 def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     job_input = job.get("input", {})
@@ -331,6 +364,8 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
 
     if payload is None:
         payload = _build_default_chat_payload(job_input)
+
+    _apply_default_max_tokens(payload, endpoint)
 
     # Always normalize model name to the alias llama-server was started with
     payload["model"] = os.getenv("MODEL_ALIAS", "gpt-4o").strip()

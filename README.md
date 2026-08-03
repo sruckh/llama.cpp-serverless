@@ -155,10 +155,19 @@ All configuration is via environment variables, set either in the Dockerfile or 
 | `LLAMA_EXTRA_ARGS` | Additional CLI flags for llama-server (space-separated) | — |
 | `LLAMA_API_KEY` | API key for llama-server authentication | — |
 | `LLAMA_DISABLE_WEBUI` | Disable the built-in web UI | `1` (disabled) |
+| `LLAMA_DEFAULT_MAX_TOKENS` | `max_tokens` applied when a request omits one | — (uncapped) |
+
+> **`LLAMA_DEFAULT_MAX_TOKENS`:** llama-server defaults to `n_predict = -1`, so a request that
+> sets no limit generates until the context window is exhausted. If the model is ever loaded from a
+> bad GGUF it emits garbage without an EOS token, and an uncapped request spends the full context
+> producing it — minutes of output that look like a hang instead of an obviously wrong answer.
+> Setting this (e.g. `1024`) bounds that failure to seconds. It only fills the gap: a request that
+> supplies `max_tokens`, `max_completion_tokens`, or `n_predict` is left untouched, and it is only
+> applied to completion endpoints.
 
 > **Context window (`LLAMA_CTX_SIZE`):** The default is 32768 tokens (32K), which matches the native training context of Qwen3.6-27B. At 32K, the KV cache adds roughly 2–4 GB of VRAM on top of model weights (~19 GB for Q5_K_M), well within the RTX 5090's 32 GB. To override on RunPod without rebuilding the image, set `LLAMA_CTX_SIZE` in the **Environment Variables** section of your RunPod Endpoint or Template settings. Going beyond 32768 requires RoPE scaling and may degrade response quality.
 
-> **Thinking mode:** When `LLAMA_ENABLE_THINKING=false` (the default), the server passes `--chat-template-kwargs '{"enable_thinking":false}'` to suppress thinking token generation, and `reasoning_content` is stripped from API responses. Set to `true` to enable thinking/reasoning output.
+> **Thinking mode:** When `LLAMA_ENABLE_THINKING=false` (the default), the server passes `--reasoning off` to suppress thinking token generation, and `reasoning_content` is stripped from API responses. Set to `true` to enable thinking/reasoning output. (`--reasoning off` replaced `--chat-template-kwargs '{"enable_thinking":false}'`, which newer llama-server builds warn is deprecated; it sets the same template kwarg plus the internal reasoning flag.)
 
 ### Timeouts
 

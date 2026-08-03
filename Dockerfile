@@ -1,4 +1,9 @@
-FROM ghcr.io/ggml-org/llama.cpp:server-cuda
+# Pinned deliberately. `:server-cuda` is a moving tag — on 2026-08-02 a rebuild
+# with no repo changes jumped it ~380 upstream builds (b9843 -> b10223), which
+# is the class of silent breakage recorded as Issue 13. b10223 is the build
+# verified working end-to-end on 2026-08-02. Bump this on purpose, not by
+# accident, and re-verify inference after any bump.
+FROM ghcr.io/ggml-org/llama.cpp:server-cuda-b10223
 
 WORKDIR /
 
